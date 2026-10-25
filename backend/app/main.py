@@ -56,10 +56,10 @@ default_origins = (
 )
 
 ALLOWED_ORIGINS = [
-    origin.strip().rstrip("/")
+    origin.rstrip("/")
     for origin in os.getenv(
         "CORS_ORIGINS",
-        default_origins,
+        ",".join(default_origins)
     ).split(",")
     if origin.strip()
 ]
