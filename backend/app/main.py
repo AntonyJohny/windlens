@@ -10,12 +10,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from pymongo import MongoClient, ASCENDING, DESCENDING
 from pymongo.errors import PyMongoError
 
+
 # ---------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------
 
 MONGO_URI = os.getenv("MONGODB_URI", "mongodb://localhost:27017")
 DB_NAME = os.getenv("DATABASE_NAME", "windlens")
+
 BASE_URL = os.getenv(
     "ELEXON_BASE_URL",
     "https://data.elexon.co.uk/bmrs/api/v1",
@@ -38,22 +40,42 @@ FORECAST_PUBLICATION_HOURS = [
     (23, 30),
 ]
 
+
+# ---------------------------------------------------------
+# FastAPI application and CORS
+# ---------------------------------------------------------
+
 app = FastAPI(title="WindLens API", version="2.0.1")
+
+# Include your production frontend domain and local development.
+# Add any other stable frontend domain you use in Vercel.
+default_origins = (
+    "https://windlens-n4c21zzg7-antonyjohny0704-4121.vercel.app,"
+    "http://localhost:5173,"
+    "http://127.0.0.1:5173"
+)
+
+ALLOWED_ORIGINS = [
+    origin.strip().rstrip("/")
+    for origin in os.getenv(
+        "CORS_ORIGINS",
+        default_origins,
+    ).split(",")
+    if origin.strip()
+]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        origin.strip()
-        for origin in os.getenv(
-            "CORS_ORIGINS",
-            "http://localhost:5173,http://127.0.0.1:5173",
-        ).split(",")
-        if origin.strip()
-    ],
-    allow_credentials=True,
+    allow_origins=ALLOWED_ORIGINS,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# ---------------------------------------------------------
+# MongoDB
+# ---------------------------------------------------------
 
 client = MongoClient(
     MONGO_URI,
@@ -65,16 +87,23 @@ db = client[DB_NAME]
 actuals = db["wind_actuals"]
 forecasts = db["wind_forecasts"]
 
+
+# ---------------------------------------------------------
+# Elexon HTTP session
+# ---------------------------------------------------------
+
 session = requests.Session()
 session.headers.update({"Accept": "application/json"})
 
 
 @app.on_event("startup")
 def create_indexes():
+    """Create indexes for actual and forecast records."""
     actuals.create_index(
         [("startTime", ASCENDING)],
         unique=True,
     )
+
     forecasts.create_index(
         [
             ("startTime", ASCENDING),
@@ -360,7 +389,7 @@ def hourly_actuals_from_api(start, end):
 
         cursor = chunk_end
 
-    # Sum onshore and offshore for each half-hour.
+    # Sum onshore and offshore generation for each half-hour.
     half_hour_totals = {}
 
     for row in half_hour_latest.values():
@@ -371,7 +400,7 @@ def hourly_actuals_from_api(start, end):
             + row["quantity"]
         )
 
-    # Group half-hour readings by hour.
+    # Group half-hour readings by UTC hour.
     hourly_buckets = {}
 
     for stamp_text, quantity in half_hour_totals.items():
@@ -426,8 +455,7 @@ def expected_publication_times():
 def historical_forecasts_from_api():
     """
     Retrieve historical forecast vintages.
-
-    Use the publishTime returned by Elexon for cutoff checks.
+    Use publishTime returned by Elexon for cutoff checks.
     """
 
     saved = {}
@@ -499,8 +527,7 @@ def get_cutoff(selected_date, decision_hour):
 
 def metric_summary(points):
     matched = [
-        point
-        for point in points
+        point for point in points
         if (
             point["actual"] is not None
             and point["forecast"] is not None
@@ -571,11 +598,11 @@ def health():
             "mongodb": "connected",
         }
 
-    except Exception as exc:
+    except Exception:
         raise HTTPException(
             status_code=503,
-            detail=f"MongoDB connection failed: {exc}",
-        ) from exc
+            detail="MongoDB connection failed",
+        )
 
 
 # ---------------------------------------------------------
@@ -585,7 +612,6 @@ def health():
 @app.post("/api/sync/january-2026")
 def sync_january_2026():
     try:
-        # FIX: Pass the required start and end arguments.
         raw_actuals = hourly_actuals_from_api(
             start=JAN_START,
             end=FEB_START,
@@ -602,7 +628,6 @@ def sync_january_2026():
                 {"$set": doc},
                 upsert=True,
             )
-
             actual_saved += 1
 
         for doc in raw_forecasts:
@@ -614,7 +639,6 @@ def sync_january_2026():
                 {"$set": doc},
                 upsert=True,
             )
-
             forecast_saved += 1
 
     except (HTTPException, PyMongoError):
