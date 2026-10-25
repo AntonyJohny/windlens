@@ -50,7 +50,7 @@ app = FastAPI(title="WindLens API", version="2.0.1")
 # Include your production frontend domain and local development.
 # Add any other stable frontend domain you use in Vercel.
 default_origins = (
-    "https://windlens-n4c21zzg7-antonyjohny0704-4121.vercel.app,"
+    "https://windlens-hazel.vercel.app,"
     "http://localhost:5173,"
     "http://127.0.0.1:5173"
 )
