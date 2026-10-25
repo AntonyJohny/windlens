@@ -1,175 +1,260 @@
-# 🌬️ WindLens — Wind Power Forecast Analysis
+# WindLens — UK Wind Power Forecast Analysis
 
-**WindLens** is a wind power forecast analysis platform designed to compare predicted wind generation with actual generation and evaluate forecast accuracy using key performance metrics.
+**WindLens** is a web application for analysing UK wind power generation forecasts against actual generation. It helps electricity procurement teams evaluate the quality of the wind forecasts available when making day-ahead electricity purchasing decisions.
 
-The project helps users understand how closely wind power forecasts match real-world generation and analyze forecast errors for a selected delivery date and decision time.
+**Live application:** https://windlens-hazel.vercel.app/  
+**Backend API:** https://windlens-6yeg.vercel.app/  
+**API documentation:** https://windlens-6yeg.vercel.app/docs  
+**GitHub repository:** https://github.com/AntonyJohny/windlens
 
-## ✨ Features
+---
 
-- **Forecast vs. Actual Comparison** — Compare predicted wind generation with actual wind generation.
-- **Forecast Accuracy Metrics** — Calculate Mean Absolute Error (MAE), Root Mean Squared Error (RMSE), Weighted Absolute Percentage Error (WAPE), and forecast bias.
-- **Date-Based Analysis** — Analyze forecast performance for a selected delivery date.
-- **Decision-Time Selection** — Evaluate forecasts based on the selected decision hour.
-- **Interactive Dashboard** — Explore forecast performance through a web-based interface.
-- **REST API** — Retrieve summary statistics and forecast analysis from the backend.
-- **Historical Forecast Analysis** — Support analysis of forecast versions published at different times, provided the corresponding data is available.
+## 1. Problem Statement
 
-## 🛠️ Tech Stack
+UK electricity utilities need to procure enough electricity to meet consumer demand. Because wind generation depends on weather conditions, the amount of electricity available from wind can differ from the forecast.
+
+Procurement decisions for the day-ahead market must be made before the delivery day. The team therefore needs to understand:
+
+- The wind generation forecast available at the time of the purchasing decision.
+- The difference between forecast and actual wind generation.
+- The historical accuracy and systematic error of the forecasts.
+
+WindLens addresses these needs by providing a dashboard for forecast analysis and quantitative accuracy evaluation.
+
+## 2. Features
+
+- **Forecast vs. Actual Analysis:** Compare forecast wind generation with actual generation for each delivery period.
+- **Decision-Time Analysis:** Evaluate forecasts using a selected decision hour.
+- **Forecast Publication-Time Awareness:** Account for when forecasts were published so that forecasts unavailable at the decision cutoff are not used.
+- **Forecast Accuracy Metrics:** Calculate MAE, RMSE, WAPE, and forecast bias for matched delivery periods.
+- **Interactive Dashboard:** Explore wind generation data and forecast performance.
+- **Historical Data Support:** Analyse the available January 2026 delivery periods and historical forecast versions.
+- **REST API:** Access summary statistics and forecast analysis through the Python backend.
+
+## 3. Technology Stack
 
 | Component | Technology |
 |---|---|
-| Frontend | React, Vite |
+| Frontend | React, Vite, JavaScript, CSS |
 | Backend | Python, FastAPI |
 | Database | MongoDB |
-| Infrastructure | Docker, Docker Compose |
-| API Testing | FastAPI Swagger UI |
+| Containerisation | Docker, Docker Compose |
+| Deployment | Vercel |
+| API Documentation | FastAPI / Swagger UI |
 
-## 🏗️ Project Structure
+## 4. Architecture
+
+The application follows a frontend–backend–database architecture.
+
+1. The **React frontend** provides the dashboard, date and decision-time selection, and visualisation of analysis results.
+2. The **FastAPI backend** exposes REST endpoints, retrieves stored generation data, selects eligible forecasts, matches delivery periods, and calculates accuracy metrics.
+3. **MongoDB** stores the actual generation data and forecast records used by the analysis.
+4. **Docker Compose** provides a way to run the application services locally.
+5. **Vercel** hosts the deployed application components.
+
+### Architecture overview
+
+```text
+User
+ |
+ v
+React + Vite Frontend
+ |
+ | HTTP / REST API
+ v
+Python + FastAPI Backend
+ |
+ | Read generation actuals
+ | Read historical forecasts
+ v
+MongoDB
+ |
+ v
+Matched periods and accuracy metrics
+ |
+ v
+Dashboard results
+```
+
+## 5. Project Structure
 
 ```text
 windlens/
 ├── frontend/
 │   ├── src/
 │   │   ├── App.jsx
+│   │   ├── main.jsx
 │   │   └── styles.css
 │   ├── package.json
-│   └── ...
+│   └── ... frontend configuration files
 ├── backend/
 │   ├── app/
 │   │   └── main.py
-│   └── requirements.txt
+│   ├── requirements.txt
+│   └── ... backend configuration files
 ├── docker-compose.yml
 ├── .gitignore
 └── README.md
 ```
 
-*The structure above is illustrative. Adjust it to match the files in your repository.*
+The frontend directory contains the React application. The backend directory contains the FastAPI service, API routes, data-processing logic, and metric calculations. The Docker Compose configuration coordinates the local services.
 
-## ⚙️ Prerequisites
+## 6. Data Sources
 
-Install the following before running WindLens:
+This assignment focuses exclusively on national-level UK wind generation actuals and forecasts from Elexon, with analysis restricted to delivery dates in January 2026.
+
+### Actual generation
+
+Source: [Elexon FUELHH API documentation](https://bmrs.elexon.co.uk/api-documentation/endpoint/datasets/FUELHH/stream)
+
+Relevant fields:
+
+- `startTime`: start time of the delivery period.
+- `generation`: actual generation value.
+- `fuelType`: fuel category, filtered to `WIND`.
+
+### Forecast generation
+
+Source: [Elexon WINDFOR API documentation](https://bmrs.elexon.co.uk/api-documentation/endpoint/datasets/WINDFOR/stream)
+
+Relevant fields:
+
+- `startTime`: target delivery period.
+- `publishTime`: time the forecast was published.
+- `generation`: forecast wind generation value.
+
+### Forecast selection
+
+For a given delivery date and decision cutoff, the application should only use forecast records published by that cutoff. Where multiple eligible forecast versions exist for a delivery period, the latest eligible publication is the relevant forecast for that decision.
+
+Forecasts are compared with actuals for matching delivery periods. Only valid matched periods should contribute to the accuracy metrics.
+
+## 7. Forecast Accuracy Metrics
+
+WindLens provides quantitative measures of forecast performance.
+
+| Metric | Meaning | Interpretation |
+|---|---|---|
+| MAE | Mean Absolute Error | Average absolute difference between forecast and actual generation. |
+| RMSE | Root Mean Squared Error | Gives larger errors greater weight. |
+| WAPE | Weighted Absolute Percentage Error | Total absolute error relative to total actual generation. |
+| Bias | Signed average forecast error | Indicates systematic overprediction or underprediction according to the implementation's sign convention. |
+
+Lower MAE, RMSE, and WAPE generally indicate better forecast accuracy. Bias closer to zero indicates less systematic error.
+
+The metrics are intended to help procurement teams understand forecast uncertainty. They are not, by themselves, a complete electricity procurement recommendation.
+
+## 8. Running the Application Locally
+
+### Prerequisites
+
+Install:
 
 - [Git](https://git-scm.com/)
-- [Node.js and npm](https://nodejs.org/)
-- [Python](https://www.python.org/) (if running the backend outside Docker)
-- [Docker Desktop](https://www.docker.com/products/docker-desktop/) (if using Docker Compose)
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/)
 
-## 🚀 Getting Started
+If running services outside Docker, you may also need [Node.js and npm](https://nodejs.org/) and [Python](https://www.python.org/).
 
-### 1. Clone the repository
+### Step 1: Clone the repository
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/windlens.git
+git clone https://github.com/AntonyJohny/windlens.git
 cd windlens
 ```
 
-Replace `YOUR_USERNAME` with your GitHub username.
+### Step 2: Configure environment variables
 
-### 2. Configure environment variables
+Configure the environment variables required by your local deployment, including the MongoDB connection URI and database name.
 
-If your project uses environment variables, create a local `.env` file based on your configuration or an `.env.example` template.
+The backend uses `MONGODB_URI` for its MongoDB connection and `DATABASE_NAME` for the database name. Check the Docker Compose configuration for any additional required variables.
 
-Do not commit credentials, passwords, or API keys.
+Do not commit `.env` files, credentials, database passwords, or production secrets to GitHub.
 
-### 3. Start the application with Docker
-
-If your `docker-compose.yml` defines the frontend, backend, and MongoDB services, run:
+### Step 3: Build and start the services
 
 ```bash
 docker compose up --build -d
 ```
 
-Check the running containers:
+### Step 4: Check the services
 
 ```bash
 docker compose ps
-```
-
-View application logs:
-
-```bash
 docker compose logs -f
 ```
 
-Stop the services:
+### Step 5: Open the application
+
+The default local URLs depend on the port mappings in the Docker Compose configuration. With the standard project development ports, use:
+
+- Frontend: http://localhost:5173
+- Backend API: http://localhost:8000
+- API documentation: http://localhost:8000/docs
+
+If your Compose configuration maps different ports, use those configured values instead.
+
+### Step 6: Stop the application
 
 ```bash
 docker compose down
 ```
 
-### 4. Access the application
+## 9. API Endpoints
 
-When running with the default development ports:
-
-| Service | URL |
-|---|---|
-| Frontend dashboard | http://localhost:5173 |
-| Backend API | http://localhost:8000 |
-| API documentation | http://localhost:8000/docs |
-
-These URLs assume the services are configured to use those ports.
-
-## 📊 Forecast Accuracy Metrics
-
-WindLens uses forecast evaluation metrics to measure differences between forecast and actual generation.
-
-| Metric | Description |
-|---|---|
-| **MAE** | Mean Absolute Error — average absolute difference between forecast and actual generation. |
-| **RMSE** | Root Mean Squared Error — penalizes larger forecast errors more heavily. |
-| **WAPE** | Weighted Absolute Percentage Error — expresses total absolute error relative to total actual generation. |
-| **Bias** | Measures systematic overprediction or underprediction, depending on the sign convention used by the implementation. |
-
-Lower MAE, RMSE, and WAPE generally indicate better forecast accuracy. Bias closer to zero generally indicates less systematic forecast error.
-
-## 🔌 API Endpoints
-
-The backend provides endpoints for retrieving summary information and evaluating forecasts.
+The backend provides endpoints for summary information and date-based forecast analysis.
 
 | Endpoint | Purpose |
 |---|---|
-| `GET /api/summary` | Retrieve summary information for the available dataset. |
-| `GET /api/analysis` | Analyze forecast performance for a selected delivery date and decision hour. |
+| `GET /api/summary` | Returns available dataset summary information. |
+| `GET /api/analysis` | Analyses forecasts and actuals for a selected delivery date and decision hour. |
 
-Example request:
+Example analysis request:
 
 ```http
-GET http://localhost:8000/api/analysis?delivery_date=2026-01-15&decision_hour=12
+GET /api/analysis?delivery_date=2026-01-15&decision_hour=12
 ```
 
-Open the interactive API documentation at [http://localhost:8000/docs](http://localhost:8000/docs) to explore available endpoints and their parameters.
+For the deployed API, the corresponding request is:
 
-## 🗂️ Data
+https://windlens-6yeg.vercel.app/api/analysis?delivery_date=2026-01-15&decision_hour=12
 
-WindLens relies on wind generation actuals and forecast data to evaluate prediction performance.
+The exact response depends on the availability of matching records in the configured database.
 
-The analysis depends on having matching delivery periods and the appropriate forecast version for the selected decision time. The exact input file formats, data sources, and import process depend on the dataset configuration used by the project.
+Interactive API documentation is available at:
 
-Ensure that your dataset is available and loaded before running an analysis.
+https://windlens-6yeg.vercel.app/docs
 
-## 🔮 Future Improvements
+## 10. Screenshots
 
-- Add interactive forecast-versus-actual charts.
-- Compare forecast accuracy across multiple delivery dates.
-- Analyze forecast errors by decision time and forecast publication time.
-- Add historical performance summaries and trend visualizations.
-- Improve data ingestion and validation.
-- Deploy the application to a cloud platform.
+Screenshots of the running application can be stored in a `screenshots/` directory in the repository.
 
-## 🤝 Contributing
+Suggested screenshots:
 
-Contributions and suggestions are welcome.
+1. Main dashboard.
+2. Forecast-versus-actual chart.
+3. Forecast accuracy metrics.
+4. Selected delivery date and decision cutoff.
 
-1. Fork the repository.
-2. Create a feature branch.
-3. Commit your changes.
-4. Push the branch to GitHub.
-5. Open a pull request.
+Once screenshots have been added to the repository, they can be embedded here. For example:
 
-## 📄 License
+```markdown
+![WindLens dashboard](screenshots/dashboard.png)
+```
 
-Choose a license before distributing the project. If you want others to use, modify, and distribute your code, consider adding an [MIT License](https://opensource.org/license/mit).
+## 11. Limitations and Future Improvements
+
+The current assignment scope is deliberately limited to national wind generation actuals and forecasts for January 2026.
+
+The application does not currently constitute a full procurement optimisation system. It does not include consumer demand forecasts, wholesale market prices, thermal plant constraints, or a complete calculation of the optimal volume to purchase.
+
+Potential future improvements include:
+
+- Comparing accuracy across multiple delivery dates and decision times.
+- Adding confidence intervals and forecast-error distributions.
+- Improving ingestion monitoring and data-quality checks.
+- Supporting additional renewable generation sources.
+- Integrating demand and market-price data for procurement scenario analysis.
 
 ---
 
-**WindLens** — Making wind power forecast performance easier to understand.
+**WindLens — Making wind power forecast performance easier to understand.**
